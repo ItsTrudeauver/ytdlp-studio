@@ -3,7 +3,7 @@
     { "src": "/(.*)", "dest": "api/index.py" }
   ],
   "functions": {
-    "api/index.py": {
+    "api/*.py": {
       "maxDuration": 60
     }
   }
