@@ -1,12 +1,9 @@
 from __future__ import annotations
-import shutil, sys
-from typing import Any
+import shutil,sys
 from fastapi import APIRouter
-from app.core.config import DEFAULT_DOWNLOAD_DIR, IS_VERCEL, SERVER_DOWNLOADS_ENABLED
+from app.core.config import DEFAULT_DOWNLOAD_DIR,IS_VERCEL,SERVER_DOWNLOADS_ENABLED
 from app.services.ytdlp_probe import YoutubeDL
-
-router = APIRouter()
-
+router=APIRouter()
 @router.get('/api/health')
-def health() -> dict[str, Any]:
-    note = 'Hosted mode: analysis and command generation are supported; long downloads should be run locally.' if IS_VERCEL else 'Local mode: managed downloads are enabled.'
+def health():
+    return {'ok':True,'status':'ok','download_dir':str(DEFAULT_DOWNLOAD_DIR),'python':sys.version.split()[0],'yt_dlp_module':YoutubeDL is not None,'yt_dlp_exe':shutil.which('yt-dlp'),'ffmpeg':shutil.which('ffmpeg'),'platform':sys.platform,'serverless':IS
