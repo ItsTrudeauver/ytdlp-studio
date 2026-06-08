@@ -1,7 +1,9 @@
 .venv
 venv
-__pycache__
+ENV
+env
+__pycache__/
 *.pyc
-downloads/*
-!downloads/.gitkeep
 .git
+.github
+node_modules
