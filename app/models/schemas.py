@@ -8,12 +8,9 @@ PlaylistDownloadMode = Literal["queue", "native"]
 ConcatPlaylist = Literal["never", "multi_video", "always"]
 CookieSource = Literal["none", "chrome", "edge", "firefox", "brave", "cookies_txt"]
 TargetOS = Literal["windows", "macos", "linux"]
+JobStatus = Literal["pending", "running", "completed", "failed"]
 
-class AnalyzeRequest(BaseModel):
-    url: str = Field(..., min_length=4)
-    playlist_mode: bool = False
-    playlist_limit: int = Field(50, ge=1, le=300)
-
+# --- CORE REQUEST OPTIONS ---
 class RequestOptions(BaseModel):
     url: str
     format_selector: str
@@ -45,6 +42,13 @@ class RequestOptions(BaseModel):
     embed_metadata: bool = False
     embed_chapters: bool = False
 
+# --- ANALYZE SCHEMAS ---
+class AnalyzeRequest(BaseModel):
+    url: str = Field(..., min_length=4)
+    playlist_mode: bool = False
+    playlist_limit: int = Field(50, ge=1, le=300)
+
+# --- NEW CROSS-PLATFORM COMMAND SCHEMAS ---
 class CommandRequest(BaseModel):
     options: RequestOptions
     target_os: TargetOS = "linux"
@@ -59,7 +63,7 @@ class FilenamePreviewResponse(BaseModel):
     filenames: List[str]
     note: Optional[str] = None
 
-# --- RESTORED DIRECTORY SCHEMAS FOR APP/ROUTES/DIRECTORIES.PY ---
+# --- RESTORED DIRECTORY SCHEMAS ---
 class DirectoryRequest(BaseModel):
     path: str = ""
 
@@ -69,3 +73,27 @@ class DirectoryResponse(BaseModel):
     resolved_path: str
     can_write: bool
     error: Optional[str] = None
+
+# --- RESTORED DOWNLOADS & JOBS SCHEMAS ---
+class DownloadRequest(BaseModel):
+    options: RequestOptions
+
+class DownloadResponse(BaseModel):
+    job_id: str
+    message: str
+
+class JobLogEntry(BaseModel):
+    timestamp: float
+    message: str
+    stream: str
+
+class JobResponse(BaseModel):
+    job_id: str
+    url: str
+    status: JobStatus
+    created_at: float
+    started_at: Optional[float] = None
+    completed_at: Optional[float] = None
+    error: Optional[str] = None
+    progress: Dict[str, Any] = Field(default_factory=dict)
+    logs: List[JobLogEntry] = Field(default_factory=list)
