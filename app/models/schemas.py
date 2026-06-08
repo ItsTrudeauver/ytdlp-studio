@@ -58,3 +58,14 @@ class FilenamePreviewRequest(BaseModel):
 class FilenamePreviewResponse(BaseModel):
     filenames: List[str]
     note: Optional[str] = None
+
+# --- RESTORED DIRECTORY SCHEMAS FOR APP/ROUTES/DIRECTORIES.PY ---
+class DirectoryRequest(BaseModel):
+    path: str = ""
+
+class DirectoryResponse(BaseModel):
+    exists: bool
+    is_absolute: bool
+    resolved_path: str
+    can_write: bool
+    error: Optional[str] = None
