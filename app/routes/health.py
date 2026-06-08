@@ -15,4 +15,4 @@ router = APIRouter()
 @router.get("/api/health")
 def health() -> dict[str, Any]:
     runtime_note = (
-        "Vercel/serverless mode: analyze and command generation are supported; actual long downloads are disabled unless YTDLP_STUDIO_ALLOW_SERVER_DOWNLOADS=1."
+        "Vercel/server
