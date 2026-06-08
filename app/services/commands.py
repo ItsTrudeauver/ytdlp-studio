@@ -1,12 +1,12 @@
 from __future__ import annotations
 import os
-import subprocess
 import shlex
+import subprocess
 from typing import List, Tuple, Optional
 from fastapi import HTTPException
 from app.core.config import IS_VERCEL
 from app.models.schemas import RequestOptions
-from app.services.validation import resolve_download_dir, safe_output_template, safe_playlist_items_spec, validate_url
+from app.services.validation import safe_output_template, safe_playlist_items_spec, validate_url
 
 def escape_shell_arg(value: str, target_os: str = "linux") -> str:
     if target_os == "windows":
@@ -24,7 +24,7 @@ def normalize_sub_languages(req: RequestOptions) -> str:
         langs = f"{langs}, -live_chat"
     return langs
 
-def add_subtitle_args(parts: List[str], req: RequestOptions, target_os: str = "linux") -> None:
+def add_subtitle_args(parts: List[str], req: RequestOptions) -> None:
     want_subs = req.subtitles_mode != "none" or req.embed_subtitles or req.subtitles_only
     if req.subtitles_only:
         parts.append("--skip-download")
@@ -93,18 +93,16 @@ def build_base_args(req: RequestOptions, for_download: bool = False) -> List[str
 
     return parts
 
-def command_preview(req: RequestOptions, target_os: str = "linux") -> str:
-    parts = build_base_args(req, for_download=False)
+# --- RESTORED: INTERNAL SUBPROCESS EXECUTION RUNNERS ---
+def ytdlp_subprocess_parts(req: RequestOptions) -> List[str]:
+    """Builds the unescaped raw argument list for local python subprocess execution."""
+    parts = build_base_args(req, for_download=True)
     
-    # Setup paths and layout parameters 
     out_tmpl = safe_output_template(req.output_template)
     dl_dir = req.download_dir.strip()
     
     if dl_dir:
-        if target_os == "windows":
-            parts += ["-P", dl_dir]
-        else:
-            parts += ["-P", dl_dir]
+        parts += ["-P", dl_dir]
             
     parts += ["-o", out_tmpl]
 
@@ -124,7 +122,41 @@ def command_preview(req: RequestOptions, target_os: str = "linux") -> str:
         else:
             parts.append(req.url)
 
-    # Shell escape logic
+    return parts
+
+def quote_command(parts: List[str]) -> str:
+    """Helper method for jobs.py to convert command arrays into a single logged string safely."""
+    return shlex.join(parts)
+# -------------------------------------------------------
+
+def command_preview(req: RequestOptions, target_os: str = "linux") -> str:
+    """Builds the escaped cross-platform terminal command string for the UI."""
+    parts = build_base_args(req, for_download=False)
+    
+    out_tmpl = safe_output_template(req.output_template)
+    dl_dir = req.download_dir.strip()
+    
+    if dl_dir:
+        parts += ["-P", dl_dir]
+            
+    parts += ["-o", out_tmpl]
+
+    if req.playlist_download_mode == "native":
+        spec = safe_playlist_items_spec(req.playlist_items_spec)
+        if spec:
+            parts += ["--playlist-items", spec]
+        if req.concat_playlist != "never":
+            parts += ["--concat-playlist", req.concat_playlist]
+            if req.concat_output_template.strip():
+                parts += ["--concat-output-template", req.concat_output_template.strip()]
+        parts.append(req.url)
+    else:
+        if req.playlist_items:
+            for item_url in req.playlist_items:
+                parts.append(item_url)
+        else:
+            parts.append(req.url)
+
     escaped_parts = [escape_shell_arg(p, target_os=target_os) for p in parts]
     
     if target_os == "windows":
@@ -133,5 +165,19 @@ def command_preview(req: RequestOptions, target_os: str = "linux") -> str:
         return " \\\n  ".join(escaped_parts)
 
 def filename_preview(req: RequestOptions) -> Tuple[List[str], Optional[str]]:
-    # Short circuited execution mockup returning lists cleanly
-    return ["sample_filename.mp4"], "Local directory configuration verification"
+    """Runs a fast subprocess simulation to pull exact filenames from yt-dlp."""
+    parts = ytdlp_subprocess_parts(req)
+    
+    # Inject simulation flags directly into the command
+    parts.insert(1, "--print")
+    parts.insert(2, "filename")
+    parts.insert(3, "--simulate") 
+    
+    try:
+        result = subprocess.run(parts, capture_output=True, text=True, check=True)
+        filenames = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        if not filenames:
+             return ["output.mp4"], "Mocked output due to empty response from yt-dlp."
+        return filenames, None
+    except Exception as e:
+        return ["error_resolving_filename.mp4"], f"Could not simulate filename: {str(e)}"
