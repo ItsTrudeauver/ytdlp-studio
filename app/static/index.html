@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>yt-dlp Studio v4.1</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">yt-dlp browser UI · v4.1</p>
+        <h1>yt-dlp Studio</h1>
+        <p class="subhead">Simple presets first. Advanced mode exposes cookies, subtitles, filename previews, playlist combining, metadata, and raw command control.</p>
+      </div>
+      <div class="status-pill" id="healthPill">Checking backend…</div>
+    </header>
+
+    <section id="serverlessNotice" class="notice panel hidden">
+      <strong>Vercel/serverless mode:</strong> analyze, filename preview, and command generation are supported. Real downloads, ffmpeg merging, browser cookies, and combining long playlists should be run locally from the generated command.
+    </section>
+
+    <section class="panel input-panel">
+      <label for="urlInput">URL <span class="help" data-help="Paste the page you want downloaded. It can be a direct video, a playlist, a channel, or a webpage with an embedded player.">?</span></label>
+      <div class="url-row">
+        <input id="urlInput" type="url" placeholder="https://youtu.be/... or playlist URL" autocomplete="off" spellcheck="false" />
+        <select id="modeSelect" class="mode-select" title="Analyze mode">
+          <option value="video">Single video</option>
+          <option value="playlist">Playlist mode</option>
+        </select>
+        <input id="playlistLimit" class="limit-input" type="number" min="1" max="300" value="50" title="Playlist item limit" />
+        <button id="analyzeBtn" class="primary">Analyze</button>
+      </div>
+      <p class="hint">Valid inputs are full <code>http://</code> or <code>https://</code> URLs. Playlist analysis can be slower because yt-dlp checks item metadata and formats.</p>
+    </section>
+
+    <nav class="tabs panel" aria-label="Workspace tabs">
+      <button class="tab active" data-tab="downloadTab">Download</button>
+      <button class="tab" data-tab="playlistTab">Playlist queue</button>
+      <button class="tab" data-tab="setupTab">Setup / deploy</button>
+    </nav>
+
+    <main id="workspace" class="workspace hidden">
+      <section id="downloadTab" class="tab-page active">
+        <section class="media-grid">
+          <article class="panel media-card">
+            <div class="thumb-wrap">
+              <img id="thumbnail" alt="Video thumbnail" />
+            </div>
+            <div class="media-info">
+              <h2 id="title">Untitled</h2>
+              <p id="metaLine" class="muted"></p>
+              <p id="subsLine" class="muted"></p>
+              <a id="sourceLink" class="source-link" target="_blank" rel="noreferrer">Open source page</a>
+            </div>
+          </article>
+
+          <article class="panel summary-card">
+            <h3>Estimated selection <span class="help" data-help="Shows the likely file size before downloading when the site reveals size data. Best/auto may stay unknown until download starts.">?</span></h3>
+            <div class="big-size" id="estimatedSize">—</div>
+            <p id="selectionSummary" class="muted">Pick a preset or open Advanced.</p>
+          </article>
+        </section>
+
+        <section class="panel presets-panel">
+          <div class="section-head">
+            <div>
+              <h3>Simple presets</h3>
+              <p class="muted">Use these for most downloads. Open Advanced only when you need exact formats, cookies, subtitles, filenames, or playlist behavior.</p>
+            </div>
+          </div>
+          <div class="preset-grid simple-presets">
+            <button class="preset-card active" data-preset="best">
+              <span>Best quality</span>
+              <strong>auto</strong>
+              <small>yt-dlp chooses best video + audio.</small>
+            </button>
+            <button class="preset-card" data-preset="storage1080">
+              <span>1080p balanced</span>
+              <strong id="preset1080Size">—</strong>
+              <small>Up to 1080p with small known streams.</small>
+            </button>
+            <button class="preset-card" data-preset="storage720">
+              <span>720p small</span>
+              <strong id="preset720Size">—</strong>
+              <small>Smaller file, still watchable.</small>
+            </button>
+            <button class="preset-card" data-preset="audio">
+              <span>Audio only</span>
+              <strong id="presetAudioSize">—</strong>
+              <small>For music, podcasts, lectures.</small>
+            </button>
+            <button class="preset-card" data-preset="subtitles">
+              <span>Subtitles only</span>
+              <strong>subs</strong>
+              <small>Skip video/audio and save captions.</small>
+            </button>
+          </div>
+        </section>
+
+        <details id="advancedDetails" class="panel advanced-drawer">
+          <summary>
+            <span>Advanced settings</span>
+            <small>formats, cookies, filenames, subtitles, playlist combining, metadata, destination</small>
+          </summary>
+
+          <section class="drawer-section picker-panel">
+            <div class="section-head">
+              <div>
+                <h3>Format picker <span class="help" data-help="Choose what picture quality and audio stream the final file uses. If you pick video-only, yt-dlp also needs an audio stream.">?</span></h3>
+                <p class="muted">Choose exact streams or leave Auto for yt-dlp’s selector.</p>
+              </div>
+            </div>
+            <div class="picker-grid">
+              <label>Video <select id="videoSelect"></select></label>
+              <label>Audio <select id="audioSelect"></select></label>
+              <label>Audio/video merge container <span class="help" data-help="Controls the final file type after a separate video stream and audio stream are put into one file. It does not join multiple videos together.">?</span>
+                <select id="mergeSelect">
+                  <option value="auto">Auto</option>
+                  <option value="mkv">MKV</option>
+                  <option value="mp4">MP4</option>
+                </select>
+              </label>
+              <label>Windows-safe filenames <span class="help" data-help="Makes downloaded filenames simpler for Windows and older tools by avoiding spaces, special characters, and non-ASCII characters.">?</span>
+                <select id="restrictFilenames">
+                  <option value="false">Off</option>
+                  <option value="true">On</option>
+                </select>
+              </label>
+            </div>
+          </section>
+
+          <section class="drawer-section output-panel">
+            <div class="section-head">
+              <div>
+                <h3>Output and filename preview <span class="help" data-help="Choose what information appears in downloaded filenames. The same base name is used for video files, separate captions, thumbnails, descriptions, and info JSON.">?</span></h3>
+                <p class="muted">Check generated filenames before you download.</p>
+              </div>
+              <button id="previewFilenamesBtn">Preview filenames</button>
+            </div>
+            <div class="filename-builder">
+              <div class="filename-options" aria-label="Filename parts">
+                <label class="check-row"><input id="filenameTitle" type="checkbox" checked /> Title <span class="help" data-help="Uses the video title as the main filename. If every part is unchecked, the app falls back to Title.">?</span></label>
+                <label class="check-row"><input id="filenameId" type="checkbox" /> Video ID <span class="help" data-help="Adds the site video ID so two videos with the same title do not overwrite each other.">?</span></label>
+                <label class="check-row"><input id="filenameUploader" type="checkbox" /> Uploader <span class="help" data-help="Adds the channel/uploader name to the filename.">?</span></label>
+                <label class="check-row"><input id="filenameSubscribers" type="checkbox" /> Uploader subscribers <span class="help" data-help="Adds the uploader subscriber/follower count when the site provides it. Some sites leave this blank or unknown.">?</span></label>
+                <label class="check-row"><input id="filenameDate" type="checkbox" /> Date <span class="help" data-help="Adds the upload date to help sort downloaded files chronologically.">?</span></label>
+                <label class="check-row"><input id="filenameViews" type="checkbox" /> Views <span class="help" data-help="Adds the view count when the site provides it. The number may become outdated later.">?</span></label>
+              </div>
+              <label>Generated filename template
+                <input id="outputTemplate" value="%(title).180B.%(ext)s" spellcheck="false" />
+              </label>
+            </div>
+            <pre id="filenamePreviewBox" class="command-box preview-box">Preview filenames will appear here.</pre>
+          </section>
+
+          <section class="drawer-section access-panel">
+            <div class="section-head">
+              <div>
+                <h3>Access / cookies <span class="help" data-help="Lets yt-dlp download videos your browser account can access, such as age-gated, private, member-only, or login-required videos. Passwords are not stored here.">?</span></h3>
+                <p class="muted">No Studio account and no password storage. Cookies are local-only.</p>
+              </div>
+            </div>
+            <div class="advanced-grid">
+              <label>Cookie source
+                <select id="cookieSource">
+                  <option value="none">None</option>
+                  <option value="chrome">Use Chrome cookies</option>
+                  <option value="edge">Use Edge cookies</option>
+                  <option value="firefox">Use Firefox cookies</option>
+                  <option value="brave">Use Brave cookies</option>
+                  <option value="cookies_txt">Use cookies.txt file</option>
+                </select>
+              </label>
+              <label>cookies.txt path <span class="help" data-help="Use this only when you exported a cookies.txt file yourself. Cookie files can grant account access, so keep them local.">?</span>
+                <input id="cookiesFile" placeholder="C:\\path\\to\\cookies.txt" spellcheck="false" />
+              </label>
+            </div>
+            <p class="hint">If you clear browser cookies, login-only videos may fail until you log into that site in the browser again.</p>
+          </section>
+
+          <section class="drawer-section playlist-settings-panel">
+            <div class="section-head">
+              <div>
+                <h3>Playlist and combining <span class="help" data-help="Selected queue downloads the checked rows as separate jobs. Native playlist sends the playlist URL directly to yt-dlp and is required to make one long video.">?</span></h3>
+                <p class="muted">Use Native playlist mode only when you want yt-dlp’s playlist features directly.</p>
+              </div>
+            </div>
+            <div class="advanced-grid">
+              <label>Playlist download mode
+                <select id="playlistDownloadMode">
+                  <option value="queue">Selected queue: one file per selected item</option>
+                  <option value="native">Native playlist command: one playlist URL</option>
+                </select>
+              </label>
+              <label>Native playlist items <span class="tiny">optional, e.g. 1:10,15,-3::1</span>
+                <input id="playlistItemsSpec" placeholder="leave blank for all" spellcheck="false" />
+              </label>
+              <label>Combine playlist videos into one long file <span class="help" data-help="Downloads playlist items and tries to make one long video instead of many separate files. It may fail if items use incompatible video/audio formats.">?</span>
+                <select id="concatSelect">
+                  <option value="never">Off</option>
+                  <option value="multi_video">Auto when yt-dlp thinks it is one multi-video show</option>
+                  <option value="always">Always try</option>
+                </select>
+              </label>
+              <label>Combined output filename <span class="help" data-help="Names the single long video created from a playlist. Separate caption files still use the normal filename base when they are saved separately.">?</span>
+                <input id="concatOutputTemplate" value="%(playlist)s - combined.%(ext)s" spellcheck="false" />
+              </label>
+            </div>
+            <p class="hint">Making one long video uses yt-dlp/ffmpeg. It works best when all playlist parts use compatible video/audio formats.</p>
+          </section>
+
+          <section class="drawer-section subtitles-panel">
+            <div class="section-head">
+              <div>
+                <h3>Subtitles <span class="help" data-help="Choose whether to save subtitles uploaded by the creator, automatic captions generated by the site, or both.">?</span></h3>
+                <p class="muted">Download manual subtitles, auto captions, or both. Live chat is excluded by default.</p>
+              </div>
+            </div>
+            <div class="advanced-grid subtitles-grid">
+              <label>Subtitle source
+                <select id="subtitlesMode">
+                  <option value="none">No subtitles</option>
+                  <option value="manual">Manual subtitles only</option>
+                  <option value="auto">Auto captions only</option>
+                  <option value="both">Manual + auto captions</option>
+                </select>
+              </label>
+              <label>Languages <span class="help" data-help="Controls which caption languages are saved next to the video or embedded into it. Use examples like en, ja, ko, en,ja,ko, or all.">?</span>
+                <input id="subtitleLanguages" value="en" placeholder="en,ja,ko or all" spellcheck="false" />
+              </label>
+              <label>Subtitle format preference
+                <input id="subtitleFormat" value="best" placeholder="best, srt, ass/srt/best" spellcheck="false" />
+              </label>
+              <label>Convert subtitles after download
+                <select id="convertSubtitles">
+                  <option value="none">No conversion</option>
+                  <option value="srt">SRT</option>
+                  <option value="vtt">VTT</option>
+                  <option value="ass">ASS</option>
+                  <option value="lrc">LRC</option>
+                </select>
+              </label>
+            </div>
+            <div class="check-grid">
+              <label class="check-row"><input id="embedSubtitles" type="checkbox" /> Embed subtitles into video <span class="help" data-help="Puts subtitles inside the final video file so you do not need separate .srt/.vtt files. This needs ffmpeg and may depend on MP4/MKV support.">?</span></label>
+              <label class="check-row"><input id="keepSubtitleFiles" type="checkbox" checked /> Keep separate subtitle files <span class="help" data-help="Saves caption files next to the video using the same base filename, useful if embedding fails or you want to edit captions later.">?</span></label>
+              <label class="check-row"><input id="excludeLiveChat" type="checkbox" checked /> Exclude live chat/danmaku <span class="help" data-help="Stops live chat replay files from being saved as subtitle files.">?</span></label>
+              <label class="check-row"><input id="subtitlesOnly" type="checkbox" /> Subtitles only, skip video/audio <span class="help" data-help="Downloads caption files only and does not download the video or audio.">?</span></label>
+            </div>
+          </section>
+
+          <section class="drawer-section metadata-panel">
+            <div class="section-head">
+              <div>
+                <h3>Metadata / side files <span class="help" data-help="Adds useful archive files beside the video or stores title/thumbnail/chapter info inside the final media file when supported.">?</span></h3>
+                <p class="muted">Useful for archiving, but not needed for quick downloads.</p>
+              </div>
+            </div>
+            <div class="check-grid">
+              <label class="check-row"><input id="writeInfoJson" type="checkbox" /> Write info JSON</label>
+              <label class="check-row"><input id="writeDescription" type="checkbox" /> Write description</label>
+              <label class="check-row"><input id="writeThumbnail" type="checkbox" /> Write thumbnail</label>
+              <label class="check-row"><input id="embedThumbnail" type="checkbox" /> Embed thumbnail</label>
+              <label class="check-row"><input id="embedMetadata" type="checkbox" /> Embed metadata</label>
+              <label class="check-row"><input id="embedChapters" type="checkbox" /> Embed chapters</label>
+            </div>
+          </section>
+
+          <section class="drawer-section destination-panel">
+            <div class="section-head compact-head">
+              <div>
+                <h3>Download destination <span class="help" data-help="Chooses where completed videos and side files are saved. The folder is created if it does not exist. Hosted mode should only generate commands.">?</span></h3>
+                <p class="muted">Paste a folder path or use Browse when running locally.</p>
+              </div>
+            </div>
+            <div class="destination-row">
+              <input id="downloadDir" spellcheck="false" />
+              <button id="browseDirBtn">Browse</button>
+              <button id="openDirBtn">Open folder</button>
+            </div>
+            <div class="check-grid single-check">
+              <label class="check-row"><input id="useDownloadArchive" type="checkbox" /> Skip already downloaded IDs using yt-dlp-studio-archive.txt <span class="help" data-help="Prevents downloading the same video again by saving completed video IDs in an archive text file.">?</span></label>
+            </div>
+          </section>
+
+          <section class="drawer-section formats-panel">
+            <div class="section-head">
+              <div>
+                <h3>All formats</h3>
+                <p class="muted">Click a row to load it into the picker for the currently previewed video.</p>
+              </div>
+              <div class="filters">
+                <input id="formatSearch" placeholder="Filter: 1080, av1, opus, mp4…" />
+                <select id="formatFilter">
+                  <option value="all">All</option>
+                  <option value="video">Video</option>
+                  <option value="audio">Audio</option>
+                  <option value="combined">Combined</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th><th>Type</th><th>Ext</th><th>Quality</th><th>FPS</th><th>Size</th><th>VCodec</th><th>ACodec</th><th>Bitrate</th><th>Note</th>
+                  </tr>
+                </thead>
+                <tbody id="formatsBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </details>
+
+        <section class="panel command-panel">
+          <div class="section-head">
+            <div>
+              <h3>Generated command <span class="help" data-help="Shows exactly what will run. Copy it if you want to run the same download manually in a terminal.">?</span></h3>
+              <p class="muted">Copy it to terminal, or let this local backend run it.</p>
+            </div>
+            <div class="button-row">
+              <button id="copyBtn">Copy</button>
+              <button id="downloadBtn" class="primary">Download</button>
+            </div>
+          </div>
+          <pre id="commandBox" class="command-box">yt-dlp ...</pre>
+          <div id="downloadStatus" class="download-status hidden">
+            <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+            <div class="download-controls">
+              <p id="progressText" class="muted">Queued…</p>
+              <div class="button-row">
+                <button id="pauseBtn">Pause</button>
+                <button id="resumeBtn">Resume</button>
+                <button id="cancelBtn" class="danger">Cancel</button>
+              </div>
+            </div>
+            <pre id="logTail" class="log-tail"></pre>
+          </div>
+        </section>
+      </section>
+
+      <section id="playlistTab" class="tab-page">
+        <section class="panel playlist-panel">
+          <div class="section-head">
+            <div>
+              <h3>Playlist queue <span class="help" data-help="In Selected queue mode, only checked rows are downloaded and sorting matters. Native playlist mode uses the original playlist URL instead.">?</span></h3>
+              <p id="playlistSummary" class="muted">Analyze a playlist URL to populate this queue.</p>
+            </div>
+            <div class="button-row">
+              <button id="selectAllBtn">Select all</button>
+              <button id="clearAllBtn">Clear</button>
+              <button id="downloadSelectedBtn" class="primary">Download selected</button>
+            </div>
+          </div>
+          <div class="playlist-tools">
+            <label>Reorder preset
+              <select id="playlistSort">
+                <option value="original">Original playlist order</option>
+                <option value="upload_newest">Time uploaded: newest first</option>
+                <option value="upload_oldest">Time uploaded: oldest first</option>
+                <option value="duration_asc">Duration: shortest first</option>
+                <option value="duration_desc">Duration: longest first</option>
+                <option value="storage_asc">Total storage: smallest first</option>
+                <option value="storage_desc">Total storage: largest first</option>
+                <option value="title_az">Alphabetical: A-Z</option>
+                <option value="title_za">Alphabetical: Z-A</option>
+              </select>
+            </label>
+            <label>Filter title <input id="playlistFilter" placeholder="contains text…" spellcheck="false" /></label>
+            <label>Queue estimate <input id="playlistEstimate" readonly value="—" /></label>
+          </div>
+          <p class="hint">Selected queue mode respects these checkboxes and sorting. Native playlist mode uses the playlist URL plus optional item range.</p>
+          <div class="table-wrap playlist-table-wrap">
+            <table>
+              <thead>
+                <tr><th>Use</th><th>#</th><th>Title</th><th>Uploaded</th><th>Duration</th><th>Estimated size</th><th>Formats</th></tr>
+              </thead>
+              <tbody id="playlistBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="setupTab" class="tab-page">
+        <section class="panel setup-panel">
+          <div class="section-head">
+            <div>
+              <h3>One-line install helpers</h3>
+              <p class="muted">These install commands are for your own machine. Restart VSCode/terminal after changing PATH.</p>
+            </div>
+          </div>
+          <div class="setup-grid">
+            <label>Windows install destination <input id="installDir" value="$env:USERPROFILE\Tools\yt-dlp" spellcheck="false" /></label>
+            <button id="copyStandaloneInstall">Copy standalone PowerShell install</button>
+          </div>
+          <h4>Standalone PowerShell: yt-dlp.exe + ffmpeg.exe into chosen folder + User PATH</h4>
+          <pre id="standaloneInstall" class="command-box setup-command"></pre>
+          <h4>Winget alternative</h4>
+          <pre id="wingetInstall" class="command-box setup-command"></pre>
+          <button id="copyWingetInstall">Copy winget install</button>
+          <h4>macOS/Linux quick notes</h4>
+          <pre id="unixInstall" class="command-box setup-command"></pre>
+          <h4>Vercel deploy</h4>
+          <pre id="vercelDeploy" class="command-box setup-command"></pre>
+          <button id="copyVercelDeploy">Copy Vercel deploy commands</button>
+        </section>
+      </section>
+    </main>
+
+    <section id="emptyState" class="empty-state panel">
+      <h2>Paste a URL to start.</h2>
+      <p>Use simple presets first. Open Advanced when you need custom formats, cookies, subtitles, filename previews, or playlist combining.</p>
+    </section>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>

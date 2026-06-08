@@ -1,0 +1,15 @@
+export const state = {
+  info: null,
+  current: null,
+  formats: [],
+  videoFormats: [],
+  audioFormats: [],
+  combinedFormats: [],
+  playlistItems: [],
+  playlistOrder: [],
+  selectedPlaylistIds: new Set(),
+  selectedPreset: 'best',
+  pollTimer: null,
+  activeJobId: null,
+  health: null,
+};
