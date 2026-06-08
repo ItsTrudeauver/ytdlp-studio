@@ -1,14 +1,15 @@
 from __future__ import annotations
 import os
-import shlex
 import subprocess
+import shlex
 from typing import List, Tuple, Optional
 from fastapi import HTTPException
 from app.core.config import IS_VERCEL
 from app.models.schemas import RequestOptions
-from app.services.validation import safe_output_template, safe_playlist_items_spec, validate_url
+from app.services.validation import resolve_download_dir, safe_output_template, safe_playlist_items_spec, validate_url
 
 def escape_shell_arg(value: str, target_os: str = "linux") -> str:
+    """Escapes strings based on target OS to prevent malformed terminal commands."""
     if target_os == "windows":
         special_chars = set('&<>()^|=;`, ')
         if any(ch in special_chars for ch in value) or not value:
@@ -93,17 +94,17 @@ def build_base_args(req: RequestOptions, for_download: bool = False) -> List[str
 
     return parts
 
-# --- RESTORED: INTERNAL SUBPROCESS EXECUTION RUNNERS ---
+def quote_command(parts: List[str]) -> str:
+    """Internal runner for the subprocess queue to log safely"""
+    return shlex.join(parts)
+
 def ytdlp_subprocess_parts(req: RequestOptions) -> List[str]:
-    """Builds the unescaped raw argument list for local python subprocess execution."""
+    """Builds raw unescaped array for internal Python execution via subprocess"""
     parts = build_base_args(req, for_download=True)
-    
     out_tmpl = safe_output_template(req.output_template)
-    dl_dir = req.download_dir.strip()
+    dl_dir = resolve_download_dir(req.download_dir)
     
-    if dl_dir:
-        parts += ["-P", dl_dir]
-            
+    parts += ["-P", str(dl_dir)]
     parts += ["-o", out_tmpl]
 
     if req.playlist_download_mode == "native":
@@ -121,16 +122,10 @@ def ytdlp_subprocess_parts(req: RequestOptions) -> List[str]:
                 parts.append(item_url)
         else:
             parts.append(req.url)
-
     return parts
 
-def quote_command(parts: List[str]) -> str:
-    """Helper method for jobs.py to convert command arrays into a single logged string safely."""
-    return shlex.join(parts)
-# -------------------------------------------------------
-
 def command_preview(req: RequestOptions, target_os: str = "linux") -> str:
-    """Builds the escaped cross-platform terminal command string for the UI."""
+    """Builds string formatted explicitly for UI viewing across operating systems"""
     parts = build_base_args(req, for_download=False)
     
     out_tmpl = safe_output_template(req.output_template)
@@ -165,10 +160,7 @@ def command_preview(req: RequestOptions, target_os: str = "linux") -> str:
         return " \\\n  ".join(escaped_parts)
 
 def filename_preview(req: RequestOptions) -> Tuple[List[str], Optional[str]]:
-    """Runs a fast subprocess simulation to pull exact filenames from yt-dlp."""
     parts = ytdlp_subprocess_parts(req)
-    
-    # Inject simulation flags directly into the command
     parts.insert(1, "--print")
     parts.insert(2, "filename")
     parts.insert(3, "--simulate") 
@@ -177,7 +169,7 @@ def filename_preview(req: RequestOptions) -> Tuple[List[str], Optional[str]]:
         result = subprocess.run(parts, capture_output=True, text=True, check=True)
         filenames = [line.strip() for line in result.stdout.splitlines() if line.strip()]
         if not filenames:
-             return ["output.mp4"], "Mocked output due to empty response from yt-dlp."
+             return [], "No filenames returned."
         return filenames, None
     except Exception as e:
-        return ["error_resolving_filename.mp4"], f"Could not simulate filename: {str(e)}"
+        return [], f"Failed to simulate filenames. Ensure yt-dlp is installed locally if testing outside serverless. ({e})"

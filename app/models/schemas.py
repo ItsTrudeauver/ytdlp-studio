@@ -10,7 +10,6 @@ CookieSource = Literal["none", "chrome", "edge", "firefox", "brave", "cookies_tx
 TargetOS = Literal["windows", "macos", "linux"]
 JobStatus = Literal["pending", "running", "completed", "failed"]
 
-# --- CORE REQUEST OPTIONS ---
 class RequestOptions(BaseModel):
     url: str
     format_selector: str
@@ -42,13 +41,11 @@ class RequestOptions(BaseModel):
     embed_metadata: bool = False
     embed_chapters: bool = False
 
-# --- ANALYZE SCHEMAS ---
 class AnalyzeRequest(BaseModel):
     url: str = Field(..., min_length=4)
     playlist_mode: bool = False
     playlist_limit: int = Field(50, ge=1, le=300)
 
-# --- NEW CROSS-PLATFORM COMMAND SCHEMAS ---
 class CommandRequest(BaseModel):
     options: RequestOptions
     target_os: TargetOS = "linux"
@@ -63,7 +60,6 @@ class FilenamePreviewResponse(BaseModel):
     filenames: List[str]
     note: Optional[str] = None
 
-# --- RESTORED DIRECTORY SCHEMAS ---
 class DirectoryRequest(BaseModel):
     path: str = ""
 
@@ -74,7 +70,6 @@ class DirectoryResponse(BaseModel):
     can_write: bool
     error: Optional[str] = None
 
-# --- RESTORED DOWNLOADS & JOBS SCHEMAS ---
 class DownloadRequest(BaseModel):
     options: RequestOptions
 

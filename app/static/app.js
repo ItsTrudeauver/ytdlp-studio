@@ -1,7 +1,6 @@
 import { state } from './js/state.js';
 import { els } from './js/dom.js';
 
-// --- UTILITY FORMATTERS ---
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -57,7 +56,6 @@ function optionLabel(fmt) {
   return `${fmt.format_id} · ${fmt.ext || '?'} · ${qualityText(fmt)} · ${size} · ${codec}${note}`;
 }
 
-// --- SELECTOR LOGIC ---
 function selectedOptionFormat(select) {
   const id = select?.value;
   if (!id || id === 'none' || id === 'auto') return null;
@@ -97,7 +95,6 @@ function splitFormats(formats) {
   return { videoFormats, audioFormats, combinedFormats };
 }
 
-// --- STATE MANAGEMENT & DOM UPDATES ---
 function populateSelects() {
   if (!els.videoSelect || !els.audioSelect) return;
   els.videoSelect.innerHTML = '';
@@ -216,7 +213,6 @@ function getOptionsPayload() {
   };
 }
 
-// --- COMMAND BUILDER & PREVIEWS ---
 function updatePresetSizeHints() {
   const audio = pickSmallestAudio();
   const v1080 = pickSmallestAtMaxHeight(1080);
@@ -236,7 +232,7 @@ async function updateCommand() {
   
   const options = getOptionsPayload();
   const targetOsElement = document.getElementById('targetOsSelect');
-  const target_os = targetOsElement ? targetOsElement.value : 'linux'; // Platform explicitly grabbed here!
+  const target_os = targetOsElement ? targetOsElement.value : 'linux'; 
 
   const payload = { options, target_os };
 
@@ -254,7 +250,6 @@ async function updateCommand() {
   }
 }
 
-// --- CORE APP DATA METHODS ---
 async function analyze() {
   const url = els.urlInput?.value.trim();
   if (!url) {
@@ -291,6 +286,8 @@ async function analyze() {
     if (els.title) els.title.textContent = data.info.title || 'Untitled';
     if (els.thumbnail) els.thumbnail.src = data.info.thumbnail || '';
     if (els.sourceLink) els.sourceLink.href = data.info.webpage_url || url;
+    
+    if (els.metaLine) els.metaLine.textContent = `${data.info.duration_string || '?'} · ${data.info.view_count ? data.info.view_count.toLocaleString() + ' views' : ''}`;
     
     populateSelects();
     applyPreset('best');
@@ -349,7 +346,6 @@ async function startDownload() {
   }
 }
 
-// --- BOOT PROCESS / HEALTH / TABS ---
 async function checkHealth() {
   try {
     const res = await fetch('/api/health');
@@ -377,21 +373,17 @@ function switchTab(tabId) {
   if (els.tabPages) els.tabPages.forEach(page => page.classList.toggle('active', page.id === tabId));
 }
 
-// --- THE MISSING EVENT LISTENER DOM BINDINGS ---
 document.addEventListener('DOMContentLoaded', () => {
-  checkHealth(); // Connects the UI back to your backend
+  checkHealth();
 
-  // Primary Interactions
   if (els.analyzeBtn) els.analyzeBtn.addEventListener('click', analyze);
   if (els.urlInput) els.urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') analyze(); });
-  
   if (els.tabs) els.tabs.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
 
   document.querySelectorAll('.preset-card').forEach(btn => {
     btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
   });
 
-  // Track settings changes automatically
   const changeListeners = [
     els.videoSelect, els.audioSelect, els.mergeSelect, els.outputTemplate,
     els.downloadDir, els.cookieSource, els.cookiesFile, document.getElementById('restrictFilenames'),
@@ -411,7 +403,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Attach execution hooks
+  if (els.cookieSource) {
+    els.cookieSource.addEventListener('change', () => {
+      if (els.cookiesFileRow) els.cookiesFileRow.classList.toggle('hidden', els.cookieSource.value !== 'cookies_txt');
+    });
+  }
+
   const previewBtn = document.getElementById('previewFilenamesBtn');
   if (previewBtn) previewBtn.addEventListener('click', previewFilenames);
 
